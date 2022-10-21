@@ -280,15 +280,14 @@ fn squares_for_main_diag<'a>(
         .filter(|square| env.square_is_valid(square));
 
     // For squares with a center value of less than 13, add the "inverse" square
-    let it = it
-        .flat_map(|square| {
-            let with_inverse = if square[2][2] < 13 {
-                vec![square, square.map(|row| row.map(|v| 26 - v))]
-            } else {
-                vec![square]
-            };
-            with_inverse.into_iter()
-        });
+    let it = it.flat_map(|square| {
+        let with_inverse = if square[2][2] < 13 {
+            vec![square, square.map(|row| row.map(|v| 26 - v))]
+        } else {
+            vec![square]
+        };
+        with_inverse.into_iter()
+    });
 
     it
 }
@@ -330,7 +329,6 @@ pub fn generate_all_squares_parallel<'a>(env: &'a Env) -> usize {
                 });
         });
 
-        println!("Kicked off computation");
         let mut num_squares = 0;
         for n in receiver.iter() {
             num_squares += n;
@@ -559,7 +557,7 @@ mod tests {
             [0, 13, 0, 0, 0],
             [0, 0, 1, 0, 0],
             [0, 0, 0, 24, 0],
-            [0, 0, 0, 0, 25]
+            [0, 0, 0, 0, 25],
         ];
         // taken from haskell version, which I believe to be correct
         let expected_num_next_squares: usize = 2448;
@@ -583,7 +581,7 @@ mod tests {
             [0, 13, 0, 0, 0],
             [0, 0, 1, 0, 0],
             [0, 0, 0, 24, 0],
-            [0, 0, 0, 0, 25]
+            [0, 0, 0, 0, 25],
         ];
 
         assert_eq!(squares_for_main_diag(&env, &square).count(), 504);
