@@ -29,7 +29,7 @@ fn get_component_coords(comp: Comp) -> Vec<Coord> {
 }
 
 /// Holds pre-computed values used by generation algorithm
-struct Env {
+pub struct Env {
     component_coords: HashMap<Comp, Vec<Coord>>,
 
     /// Vec of vecs of coordinates, one vec for each row, column and diagonal
@@ -48,7 +48,7 @@ struct Env {
 }
 
 impl Env {
-    fn new() -> Env {
+    pub fn new() -> Env {
         let mut component_coords = HashMap::<Comp, Vec<Coord>>::new();
         for i in 0..5 {
             component_coords.insert(Comp::Row(i), get_component_coords(Comp::Row(i)));
@@ -210,8 +210,7 @@ fn perform_step<'a>(
     comp: Comp,
 ) -> impl Iterator<Item = Square> + 'a {
     let assigned = env.assigned_values(square, comp);
-    let assigned_vals = assigned.iter().map(|(val, _)| val).cloned().collect_vec();
-    let assigned_indices = assigned.iter().map(|(_, idx)| idx).cloned().collect_vec();
+    let (assigned_vals, assigned_indices): (Vec<_>, Vec<_>) = assigned.iter().copied().unzip();
 
     let vals_to_exclude = env
         .all_square_values(square)
@@ -235,97 +234,47 @@ fn perform_step<'a>(
         })
 }
 
-struct SearchStep {
-    component: Comp,
-    constraint: Option<Box<dyn Fn(&Env, &Square) -> bool>>,
-}
 
-struct SquaresForMainDiagSteps {
-    steps: Vec<SearchStep>,
-}
-
-impl SquaresForMainDiagSteps {
-    fn new() -> SquaresForMainDiagSteps {
-        SquaresForMainDiagSteps {
-            steps: vec![
-                SearchStep {
-                    component: Comp::MinorDiag,
-                    // constraint I > B, H > B, G > F > B
-                    constraint: Some(Box::new(|_, square| {
-                        square[3][1] > square[0][0]
-                            && square[1][3] > square[0][0]
-                            && square[4][0] > square[0][4]
-                            && square[0][4] > square[0][0]
-                    })),
-                },
-                SearchStep {
-                    component: Comp::Row(0),
-                    constraint: None,
-                },
-                SearchStep {
-                    component: Comp::Col(1),
-                    constraint: None,
-                },
-                SearchStep {
-                    component: Comp::Col(3),
-                    constraint: None,
-                },
-                SearchStep {
-                    component: Comp::Row(4),
-                    constraint: None,
-                },
-                SearchStep {
-                    component: Comp::Row(2),
-                    constraint: None,
-                },
-                SearchStep {
-                    component: Comp::Col(2),
-                    constraint: None,
-                },
-                SearchStep {
-                    component: Comp::Col(0),
-                    constraint: None,
-                },
-                SearchStep {
-                    component: Comp::Col(4),
-                    constraint: Some(Box::new(|env, square| env.square_is_valid(square))),
-                },
-            ],
-        }
-    }
-}
-
-fn squares_for_main_diag<F>(
-    steps: &SquaresForMainDiagSteps,
-    current_step_idx: usize,
-    env: &Env,
+fn squares_for_main_diag<'a>(
+    env: &'a Env,
     main_diag_square: &Square,
-    consume_square: &mut F,
-) where
-    F: FnMut(&Square),
-{
-    let step = &steps.steps[current_step_idx];
-    for next_square in perform_step(env, main_diag_square, step.component) {
-        if !step
-            .constraint
-            .as_ref()
-            .map_or(true, |f| (*f)(env, &next_square))
-        {
-            continue;
-        }
+) -> impl Iterator<Item = Square> + 'a {
+    // fill in minor diag
+    let it = perform_step(env, main_diag_square, Comp::MinorDiag).filter(|square| {
+        // constraint I > B, H > B, G > F > B
+        square[3][1] > square[0][0]
+            && square[1][3] > square[0][0]
+            && square[4][0] > square[0][4]
+            && square[0][4] > square[0][0]
+    });
 
-        if current_step_idx + 1 == steps.steps.len() {
-            consume_square(&next_square);
-        } else {
-            squares_for_main_diag(
-                steps,
-                current_step_idx + 1,
-                env,
-                &next_square,
-                consume_square,
-            );
-        }
-    }
+    // fill in row 0
+    let it = it.flat_map(|square| perform_step(env, &square, Comp::Row(0)));
+
+    // fill column 1
+    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(1)));
+
+    // Fill column 3
+    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(3)));
+
+    // fill row 4
+    let it = it.flat_map(|square| perform_step(env, &square, Comp::Row(4)));
+
+    // fill row 2
+    let it = it.flat_map(|square| perform_step(env, &square, Comp::Row(2)));
+
+    // fill column 2
+    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(2)));
+
+    // fill column 0
+    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(0)));
+
+    // fill column 4
+    let it = it
+        .flat_map(|square| perform_step(env, &square, Comp::Col(4)))
+        .filter(|square| env.square_is_valid(square));
+
+    it
 }
 
 fn main_diag_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
@@ -346,16 +295,8 @@ fn main_diag_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
         })
 }
 
-pub fn generate_all_squares<F>(consume_square: &mut F)
-where
-    F: FnMut(&Square),
-{
-    let env = Env::new();
-    let steps = SquaresForMainDiagSteps::new();
-
-    for (_, main_diag_square) in main_diag_squares(&env).enumerate() {
-        squares_for_main_diag(&steps, 0, &env, &main_diag_square, consume_square);
-    }
+pub fn generate_all_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
+    main_diag_squares(env).flat_map(|square| squares_for_main_diag(env, &square))
 }
 
 #[cfg(test)]
