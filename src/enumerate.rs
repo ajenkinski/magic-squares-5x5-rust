@@ -1,6 +1,12 @@
 use fixedbitset::FixedBitSet;
 use itertools::Itertools;
-use std::collections::HashMap;
+use rayon::prelude::*;
+use std::sync::mpsc::channel;
+use std::{
+    collections::HashMap,
+    io::{self, Write},
+    thread,
+};
 
 type SquareVal = u8;
 
@@ -234,7 +240,6 @@ fn perform_step<'a>(
         })
 }
 
-
 fn squares_for_main_diag<'a>(
     env: &'a Env,
     main_diag_square: &Square,
@@ -274,6 +279,17 @@ fn squares_for_main_diag<'a>(
         .flat_map(|square| perform_step(env, &square, Comp::Col(4)))
         .filter(|square| env.square_is_valid(square));
 
+    // For squares with a center value of less than 13, add the "inverse" square
+    let it = it
+        .flat_map(|square| {
+            let with_inverse = if square[2][2] < 13 {
+                vec![square, square.map(|row| row.map(|v| 26 - v))]
+            } else {
+                vec![square]
+            };
+            with_inverse.into_iter()
+        });
+
     it
 }
 
@@ -297,6 +313,35 @@ fn main_diag_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
 
 pub fn generate_all_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
     main_diag_squares(env).flat_map(|square| squares_for_main_diag(env, &square))
+}
+
+pub fn generate_all_squares_parallel<'a>(env: &'a Env) -> usize {
+    println!("Starting parallel computation");
+
+    thread::scope(|scope| {
+        let (sender, receiver) = channel();
+
+        scope.spawn(|| {
+            main_diag_squares(env)
+                .par_bridge()
+                .for_each_with(sender, |s, square| {
+                    let count = squares_for_main_diag(env, &square).count();
+                    s.send(count).unwrap();
+                });
+        });
+
+        println!("Kicked off computation");
+        let mut num_squares = 0;
+        for n in receiver.iter() {
+            num_squares += n;
+            if num_squares % 1000 == 0 {
+                print!("Found {} squares\r", num_squares);
+                io::stdout().flush().unwrap();
+            }
+        }
+
+        num_squares
+    })
 }
 
 #[cfg(test)]
@@ -500,12 +545,26 @@ mod tests {
         let mut square = EMPTY_SQUARE;
         square[2][2] = 1;
 
-        let num_vecs = env.vectors_by_include[0].count_ones(..);
+        let num_vecs = env.filtered_vectors(&[1], &[]).len();
         // There should be 24 permutions of each vector, if only one value isn't allowed to move
         let expected_num_next_squares = num_vecs * 24;
 
         assert_eq!(
             perform_step(&env, &square, Comp::MainDiag).count(),
+            expected_num_next_squares
+        );
+
+        let square = [
+            [2, 0, 0, 0, 0],
+            [0, 13, 0, 0, 0],
+            [0, 0, 1, 0, 0],
+            [0, 0, 0, 24, 0],
+            [0, 0, 0, 0, 25]
+        ];
+        // taken from haskell version, which I believe to be correct
+        let expected_num_next_squares: usize = 2448;
+        assert_eq!(
+            perform_step(&env, &square, Comp::MinorDiag).count(),
             expected_num_next_squares
         );
     }
@@ -514,5 +573,19 @@ mod tests {
     fn test_main_diag_squares() {
         let env = Env::new();
         assert_eq!(main_diag_squares(&env).count(), 10908);
+    }
+
+    #[test]
+    fn test_squares_for_main_diag() {
+        let env = Env::new();
+        let square = [
+            [2, 0, 0, 0, 0],
+            [0, 13, 0, 0, 0],
+            [0, 0, 1, 0, 0],
+            [0, 0, 0, 24, 0],
+            [0, 0, 0, 0, 25]
+        ];
+
+        assert_eq!(squares_for_main_diag(&env, &square).count(), 504);
     }
 }
