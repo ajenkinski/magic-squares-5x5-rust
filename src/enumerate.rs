@@ -1,5 +1,5 @@
+use fixedbitset::FixedBitSet;
 use itertools::Itertools;
-use std::collections::HashSet;
 use std::collections::HashMap;
 
 type SquareVal = u8;
@@ -40,11 +40,11 @@ struct Env {
 
     /// Index that allows looking up all vectors containing number x.  vectors_by_include[x - 1] is the set
     /// of indexes into all_vectors of vectors containing x.
-    vectors_by_include: Vec<HashSet<usize>>,
+    vectors_by_include: Vec<FixedBitSet>,
 
     /// Index that allows looking up all vectors *not* containing number x.  vectors_by_exclude[x - 1] is the
     ///  set of indexes into all_vectors of vectors not containing x.
-    vectors_by_exclude: Vec<HashSet<usize>>,
+    vectors_by_exclude: Vec<FixedBitSet>,
 }
 
 impl Env {
@@ -66,8 +66,9 @@ impl Env {
             .filter(|v| v.iter().sum::<SquareVal>() == 65)
             .collect();
 
-        let mut vectors_by_include = vec![HashSet::<usize>::new(); 25];
-        let mut vectors_by_exclude = vec![HashSet::<usize>::new(); 25];
+        let max_vec_id: usize = 1394;
+        let mut vectors_by_include = vec![FixedBitSet::with_capacity(max_vec_id); 25];
+        let mut vectors_by_exclude = vec![FixedBitSet::with_capacity(max_vec_id); 25];
 
         for (i, v) in all_vectors.iter().enumerate() {
             for x in v.iter() {
@@ -90,11 +91,7 @@ impl Env {
         }
     }
 
-    fn filtered_vectors(
-        &self,
-        includes: &[SquareVal],
-        excludes: &[SquareVal],
-    ) -> impl Iterator<Item = &SquareVec> {
+    fn filtered_vectors(&self, includes: &[SquareVal], excludes: &[SquareVal]) -> Vec<&SquareVec> {
         let vec_sets = includes
             .iter()
             .map(|i| &self.vectors_by_include[(i - 1) as usize])
@@ -106,17 +103,17 @@ impl Env {
             .collect_vec();
 
         let vec_idxs = if vec_sets.len() == 0 {
-            HashSet::<usize>::new()
+            FixedBitSet::new()
         } else {
             // intersection of vec_sets
-            vec_sets
-                .iter()
-                .skip(1)
-                .cloned()
-                .fold(vec_sets[0].clone(), |s1, s2| &s1 & s2)
+            let mut result = vec_sets[0].clone();
+            for &s in vec_sets[1..].into_iter() {
+                result.intersect_with(s);
+            }
+            result
         };
 
-        vec_idxs.into_iter().map(|i| &self.all_vectors[i])
+        vec_idxs.ones().map(|i| &self.all_vectors[i]).collect()
     }
 
     fn square_is_valid(&self, square: &Square) -> bool {
@@ -225,6 +222,7 @@ fn perform_step<'a>(
     let square = square.clone();
 
     env.filtered_vectors(&assigned_vals, &vals_to_exclude)
+        .into_iter()
         .flat_map(move |new_component_vec| {
             let to_move = (0usize..5)
                 .filter(|i| !assigned_indices.contains(i))
@@ -319,7 +317,13 @@ fn squares_for_main_diag<F>(
         if current_step_idx + 1 == steps.steps.len() {
             consume_square(&next_square);
         } else {
-            squares_for_main_diag(steps, current_step_idx + 1, env, &next_square, consume_square);
+            squares_for_main_diag(
+                steps,
+                current_step_idx + 1,
+                env,
+                &next_square,
+                consume_square,
+            );
         }
     }
 }
@@ -349,7 +353,7 @@ where
     let env = Env::new();
     let steps = SquaresForMainDiagSteps::new();
 
-    for main_diag_square in main_diag_squares(&env) {
+    for (_, main_diag_square) in main_diag_squares(&env).enumerate() {
         squares_for_main_diag(&steps, 0, &env, &main_diag_square, consume_square);
     }
 }
@@ -392,14 +396,14 @@ mod tests {
             .all(|v| v.iter().sum::<SquareVal>() == 65));
 
         for (i, vi) in env.vectors_by_include.iter().enumerate() {
-            for vec_idx in vi.iter() {
-                assert!(env.all_vectors[*vec_idx].contains(&((i + 1) as u8)));
+            for vec_idx in vi.ones() {
+                assert!(env.all_vectors[vec_idx].contains(&((i + 1) as u8)));
             }
         }
 
         for (i, ve) in env.vectors_by_exclude.iter().enumerate() {
-            for vec_idx in ve.iter() {
-                assert!(!env.all_vectors[*vec_idx].contains(&((i + 1) as u8)));
+            for vec_idx in ve.ones() {
+                assert!(!env.all_vectors[vec_idx].contains(&((i + 1) as u8)));
             }
         }
     }
@@ -407,14 +411,14 @@ mod tests {
     #[test]
     fn test_filtered_vectors() {
         let env = Env::new();
-        let vecs = env.filtered_vectors(&[1, 23], &[]).collect_vec();
+        let vecs = env.filtered_vectors(&[1, 23], &[]);
         assert!(vecs.len() > 0);
         for v in vecs {
             assert!(v.contains(&1));
             assert!(v.contains(&23));
         }
 
-        let vecs = env.filtered_vectors(&[1, 23], &[2]).collect_vec();
+        let vecs = env.filtered_vectors(&[1, 23], &[2]);
         assert!(vecs.len() > 0);
         for v in vecs {
             assert!(v.contains(&1));
@@ -555,7 +559,7 @@ mod tests {
         let mut square = EMPTY_SQUARE;
         square[2][2] = 1;
 
-        let num_vecs = env.vectors_by_include[0].len();
+        let num_vecs = env.vectors_by_include[0].count_ones(..);
         // There should be 24 permutions of each vector, if only one value isn't allowed to move
         let expected_num_next_squares = num_vecs * 24;
 
