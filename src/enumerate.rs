@@ -346,10 +346,8 @@ pub fn generate_all_squares_parallel<'a>(env: &'a Env) -> usize {
         let mut num_squares = 0;
         for n in receiver.iter() {
             num_squares += n;
-            if num_squares % 1000 == 0 {
-                print!("Found {} squares\r", num_squares);
-                io::stdout().flush().unwrap();
-            }
+            print!("Found {} squares\r", num_squares);
+            io::stdout().flush().unwrap();
         }
 
         num_squares
