@@ -25,6 +25,7 @@ type Square = [[SquareVal; 5]; 5];
 
 const EMPTY_SQUARE: Square = [[0; 5]; 5];
 
+/// Returns the set of coordinates for given component
 fn get_component_coords(comp: Comp) -> Vec<Coord> {
     match comp {
         Comp::Row(r) => (0..5).map(|c| (r, c)).collect(),
@@ -97,6 +98,7 @@ impl Env {
         }
     }
 
+    /// Returns all component vectors which contain includes, and don't contain excludes
     fn filtered_vectors(&self, includes: &[SquareVal], excludes: &[SquareVal]) -> Vec<&SquareVec> {
         let vec_sets = includes
             .iter()
@@ -122,6 +124,7 @@ impl Env {
         vec_idxs.ones().map(|i| &self.all_vectors[i]).collect()
     }
 
+    /// Returns true if square is a valid 5x5 magic square
     fn square_is_valid(&self, square: &Square) -> bool {
         self.all_component_coords
             .iter()
@@ -240,10 +243,14 @@ fn perform_step<'a>(
         })
 }
 
+/// Given a starting square with only the main diagonal filled in, returns an iterator over all filled in squares
+/// with the starting diagonal.
 fn squares_for_main_diag<'a>(
     env: &'a Env,
     main_diag_square: &Square,
 ) -> impl Iterator<Item = Square> + 'a {
+    // implement multi-step backtracking by applying flat_map to the result of each previous step
+
     // fill in minor diag
     let it = perform_step(env, main_diag_square, Comp::MinorDiag).filter(|square| {
         // constraint I > B, H > B, G > F > B
@@ -292,6 +299,7 @@ fn squares_for_main_diag<'a>(
     it
 }
 
+/// Returns an iterator of all squares with just the main diagonal filled in
 fn main_diag_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
     let center_values = (1 as SquareVal)..=13;
     let center_squares = center_values.map(|center| {
@@ -310,10 +318,13 @@ fn main_diag_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
         })
 }
 
+/// Returns an iterator over all "basic" 5x5 magic squares, computed serially
 pub fn generate_all_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
     main_diag_squares(env).flat_map(|square| squares_for_main_diag(env, &square))
 }
 
+/// Generates all "basic" 5x5 magic squares in parallel.  Prints progress as it goes along, and returns the total
+/// number of squares found. 
 pub fn generate_all_squares_parallel<'a>(env: &'a Env) -> usize {
     println!("Starting parallel computation");
 
