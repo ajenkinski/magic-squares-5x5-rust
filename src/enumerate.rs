@@ -100,6 +100,11 @@ impl Env {
 
     /// Returns all component vectors which contain includes, and don't contain excludes
     fn filtered_vectors(&self, includes: &[SquareVal], excludes: &[SquareVal]) -> Vec<&SquareVec> {
+        assert!(
+            includes.len() + excludes.len() > 0,
+            "At least one of includes or excludes must be non-empty"
+        );
+
         let vec_sets = includes
             .iter()
             .map(|i| &self.vectors_by_include[(i - 1) as usize])
@@ -110,16 +115,10 @@ impl Env {
             )
             .collect_vec();
 
-        let vec_idxs = if vec_sets.len() == 0 {
-            FixedBitSet::new()
-        } else {
-            // intersection of vec_sets
-            let mut result = vec_sets[0].clone();
-            for &s in vec_sets[1..].into_iter() {
-                result.intersect_with(s);
-            }
-            result
-        };
+        let mut vec_idxs = vec_sets[0].clone();
+        for &s in vec_sets[1..].into_iter() {
+            vec_idxs.intersect_with(s);
+        }
 
         vec_idxs.ones().map(|i| &self.all_vectors[i]).collect()
     }
@@ -252,8 +251,10 @@ fn squares_for_main_diag<'a>(
     // implement multi-step backtracking by applying flat_map to the result of each previous step
 
     // fill in minor diag
-    let it = perform_step(env, main_diag_square, Comp::MinorDiag).filter(|square| {
-        // constraint I > B, H > B, G > F > B
+    let it = perform_step(env, main_diag_square, Comp::MinorDiag);
+
+    // constraint I > B, H > B, G > F > B
+    let it = it.filter(|square| {
         square[3][1] > square[0][0]
             && square[1][3] > square[0][0]
             && square[4][0] > square[0][4]
@@ -282,9 +283,11 @@ fn squares_for_main_diag<'a>(
     let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(0)));
 
     // fill column 4
-    let it = it
-        .flat_map(|square| perform_step(env, &square, Comp::Col(4)))
-        .filter(|square| env.square_is_valid(square));
+    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(4)));
+
+    // finally, filter out invalid squares.  The algorithm ensures that most components are valid, but row 1 and row 3
+    // could still be invalid.
+    let it = it.filter(|square| env.square_is_valid(square));
 
     // For squares with a center value of less than 13, add the "inverse" square
     let it = it.flat_map(|square| {
@@ -324,7 +327,7 @@ pub fn generate_all_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 
 }
 
 /// Generates all "basic" 5x5 magic squares in parallel.  Prints progress as it goes along, and returns the total
-/// number of squares found. 
+/// number of squares found.
 pub fn generate_all_squares_parallel<'a>(env: &'a Env) -> usize {
     println!("Starting parallel computation");
 
@@ -595,6 +598,7 @@ mod tests {
             [0, 0, 0, 0, 25],
         ];
 
-        assert_eq!(squares_for_main_diag(&env, &square).count(), 504);
+        let filled = squares_for_main_diag(&env, &square);
+        assert!(filled.take(10).all(|square| env.square_is_valid(&square)));
     }
 }
