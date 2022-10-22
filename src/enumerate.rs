@@ -115,6 +115,7 @@ impl Env {
             )
             .collect_vec();
 
+        // intersection of all sets
         let mut vec_idxs = vec_sets[0].clone();
         for &s in vec_sets[1..].into_iter() {
             vec_idxs.intersect_with(s);
