@@ -1,12 +1,7 @@
 use fixedbitset::FixedBitSet;
 use itertools::Itertools;
 use rayon::prelude::*;
-use std::sync::mpsc::channel;
-use std::{
-    collections::HashMap,
-    io::{self, Write},
-    thread,
-};
+use std::collections::HashMap;
 
 type SquareVal = u8;
 
@@ -327,32 +322,13 @@ pub fn generate_all_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 
     main_diag_squares(env).flat_map(|square| squares_for_main_diag(env, &square))
 }
 
-/// Generates all "basic" 5x5 magic squares in parallel.  Prints progress as it goes along, and returns the total
-/// number of squares found.
-pub fn generate_all_squares_parallel<'a>(env: &'a Env) -> usize {
-    println!("Starting parallel computation");
-
-    thread::scope(|scope| {
-        let (sender, receiver) = channel();
-
-        scope.spawn(|| {
-            main_diag_squares(env)
-                .par_bridge()
-                .for_each_with(sender, |s, square| {
-                    let count = squares_for_main_diag(env, &square).count();
-                    s.send(count).unwrap();
-                });
-        });
-
-        let mut num_squares = 0;
-        for n in receiver.iter() {
-            num_squares += n;
-            print!("Found {} squares\r", num_squares);
-            io::stdout().flush().unwrap();
-        }
-
-        num_squares
-    })
+/// Returns a parallel iterator over all "basic" 5x5 magic squares, computed in parallel
+pub fn generate_all_squares_parallel<'a>(
+    env: &'a Env,
+) -> impl ParallelIterator<Item = Square> + 'a {
+    main_diag_squares(env)
+        .par_bridge()
+        .flat_map_iter(|square| squares_for_main_diag(env, &square))
 }
 
 #[cfg(test)]
