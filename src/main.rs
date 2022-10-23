@@ -3,7 +3,6 @@ use rayon;
 use rayon::prelude::ParallelIterator;
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::{thread, time};
 
 pub mod enumerate;
@@ -43,15 +42,14 @@ fn main() {
                 .unwrap();
         }
 
-        thread::scope(|scope| {
-            // So that I can print a running total, I have the worker threads increment num_squares
-            // for each generated square, and then the main thread prints the current total every second.
-            let num_squares = Arc::new(AtomicUsize::new(0));
-            let num_squares_clone = num_squares.clone();
+        // So that I can print a running total, I have the worker threads increment num_squares
+        // for each generated square, and then the main thread prints the current total every second.
+        let num_squares = AtomicUsize::new(0);
 
-            let worker_thread = scope.spawn(move || {
+        thread::scope(|scope| {
+            let worker_thread = scope.spawn(|| {
                 enumerate::generate_all_squares_parallel(&env).for_each(|_| {
-                    num_squares_clone.fetch_add(1, Ordering::Relaxed);
+                    num_squares.fetch_add(1, Ordering::Relaxed);
                 });
             });
 
@@ -62,10 +60,11 @@ fn main() {
 
                 thread::sleep(poll_interval);
             }
-            println!(
-                "Total squares found: {}",
-                num_squares.load(Ordering::Relaxed)
-            );
         });
+
+        println!(
+            "Total squares found: {}",
+            num_squares.load(Ordering::Relaxed)
+        );
     }
 }
