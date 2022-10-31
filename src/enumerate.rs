@@ -19,13 +19,24 @@ enum Comp {
 type Coord = (usize, usize);
 
 /// A length-5 vector of values representing a possible row, column or diagonal of a square
-type SquareVec = Vec<SquareVal>;
+type SquareVec = [SquareVal; 5];
 
 /// A magic square represented as a 5x5 array
-type Square = [[SquareVal; 5]; 5];
+type Square = [SquareVec; 5];
 
 /// An empty square constant.  0 is used to represent an un-filled-in value
 const EMPTY_SQUARE: Square = [[0; 5]; 5];
+
+/// Convert a length-5 Vec to a SquareVec
+fn vec_to_square_vec(vec: &Vec<SquareVal>) -> SquareVec {
+    assert_eq!(vec.len(), 5);
+    let mut result: SquareVec = [0; 5];
+    for i in 0..5 {
+        result[i] = vec[i];
+    }
+    result
+}
+
 
 /// Returns the set of coordinates for given component
 fn get_component_coords(comp: Comp) -> Vec<Coord> {
@@ -74,6 +85,7 @@ impl Env {
             .clone()
             .combinations(5)
             .filter(|v| v.iter().sum::<SquareVal>() == 65)
+            .map(|v| vec_to_square_vec(&v))
             .collect();
 
         let max_vec_id: usize = 1394;
@@ -435,7 +447,7 @@ mod tests {
             [0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0],
         ];
-        let actual = env.assign_vector(&EMPTY_SQUARE, Comp::Row(1), &vec![20, 2, 15, 9, 19]);
+        let actual = env.assign_vector(&EMPTY_SQUARE, Comp::Row(1), &[20, 2, 15, 9, 19]);
         assert_eq!(expected, actual);
 
         let expected = [
@@ -445,7 +457,7 @@ mod tests {
             [0, 0, 4, 0, 0],
             [0, 0, 5, 0, 0],
         ];
-        let actual = env.assign_vector(&EMPTY_SQUARE, Comp::Col(2), &vec![1, 2, 3, 4, 5]);
+        let actual = env.assign_vector(&EMPTY_SQUARE, Comp::Col(2), &[1, 2, 3, 4, 5]);
         assert_eq!(expected, actual);
 
         let expected = [
@@ -455,7 +467,7 @@ mod tests {
             [0, 0, 0, 4, 0],
             [0, 0, 0, 0, 5],
         ];
-        let actual = env.assign_vector(&EMPTY_SQUARE, Comp::MainDiag, &vec![1, 2, 3, 4, 5]);
+        let actual = env.assign_vector(&EMPTY_SQUARE, Comp::MainDiag, &[1, 2, 3, 4, 5]);
         assert_eq!(expected, actual);
 
         let expected = [
@@ -465,7 +477,7 @@ mod tests {
             [0, 4, 0, 0, 0],
             [5, 0, 0, 0, 0],
         ];
-        let actual = env.assign_vector(&EMPTY_SQUARE, Comp::MinorDiag, &vec![1, 2, 3, 4, 5]);
+        let actual = env.assign_vector(&EMPTY_SQUARE, Comp::MinorDiag, &[1, 2, 3, 4, 5]);
         assert_eq!(expected, actual);
     }
 
@@ -515,7 +527,7 @@ mod tests {
 
         let expected = vec![vec![1, 2, 3, 4, 5], vec![1, 2, 5, 4, 3]];
         let actual = env
-            .vector_permuations(&[2, 4], &vec![1, 2, 3, 4, 5])
+            .vector_permuations(&[2, 4], &[1, 2, 3, 4, 5])
             .collect_vec();
         assert_eq!(expected, actual);
     }
@@ -524,7 +536,7 @@ mod tests {
     fn test_align_vector() {
         let env = Env::new();
 
-        let aligned = env.align_vector(&[(1, 3), (4, 0)], &vec![1, 2, 3, 4, 5]);
+        let aligned = env.align_vector(&[(1, 3), (4, 0)], &[1, 2, 3, 4, 5]);
         assert_eq!(aligned[0], 4);
         assert_eq!(aligned[3], 1);
         assert_eq!(
