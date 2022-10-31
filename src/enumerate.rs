@@ -3,6 +3,7 @@ use itertools::Itertools;
 use rayon::prelude::*;
 use std::collections::HashMap;
 
+/// A value between 1 and 25
 type SquareVal = u8;
 
 /// Different types of square components
@@ -14,10 +15,16 @@ enum Comp {
     MinorDiag,
 }
 
+/// A (row, column) coordinate of a square, 0 based
 type Coord = (usize, usize);
+
+/// A length-5 vector of values representing a possible row, column or diagonal of a square
 type SquareVec = Vec<SquareVal>;
+
+/// A magic square represented as a 5x5 array
 type Square = [[SquareVal; 5]; 5];
 
+/// An empty square constant.  0 is used to represent an un-filled-in value
 const EMPTY_SQUARE: Square = [[0; 5]; 5];
 
 /// Returns the set of coordinates for given component
@@ -50,6 +57,7 @@ pub struct Env {
 }
 
 impl Env {
+    /// Initialize a new Env struct with precomputed values to use in computations
     pub fn new() -> Env {
         let mut component_coords = HashMap::<Comp, Vec<Coord>>::new();
         for i in 0..5 {
