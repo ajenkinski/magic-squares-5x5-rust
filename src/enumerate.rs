@@ -88,9 +88,9 @@ impl Env {
             .map(|v| vec_to_square_vec(&v))
             .collect();
 
-        let max_vec_id: usize = 1394;
-        let mut vectors_by_include = vec![FixedBitSet::with_capacity(max_vec_id); 25];
-        let mut vectors_by_exclude = vec![FixedBitSet::with_capacity(max_vec_id); 25];
+        let num_vecs = all_vectors.len();
+        let mut vectors_by_include = vec![FixedBitSet::with_capacity(num_vecs); 25];
+        let mut vectors_by_exclude = vec![FixedBitSet::with_capacity(num_vecs); 25];
 
         for (i, v) in all_vectors.iter().enumerate() {
             for x in v.iter() {
