@@ -1,7 +1,10 @@
 use fixedbitset::FixedBitSet;
 use itertools::Itertools;
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    io::{Read, Write},
+};
 
 /// A value between 1 and 25
 type SquareVal = u8;
@@ -36,7 +39,6 @@ fn vec_to_square_vec(vec: &Vec<SquareVal>) -> SquareVec {
     }
     result
 }
-
 
 /// Returns the set of coordinates for given component
 fn get_component_coords(comp: Comp) -> Vec<Coord> {
@@ -351,6 +353,27 @@ pub fn generate_all_squares_parallel<'a>(
         .flat_map_iter(|square| squares_for_main_diag(env, &square))
 }
 
+/// Write a square in binary format
+pub fn write_square<W: Write>(square: &Square, writer: &mut W) -> std::io::Result<()> {
+    let buf = square.iter().flatten().cloned().collect_vec();
+    writer.write_all(buf.as_slice())
+}
+
+/// Read a square from a reader, in the format written out by write_square
+pub fn read_square<R: Read>(reader: &mut R) -> std::io::Result<Square> {
+    let mut buf = [0u8; 25];
+    reader.read_exact(&mut buf)?;
+
+    let mut square = EMPTY_SQUARE;
+    for r in 0..5 {
+        for c in 0..5 {
+            square[r][c] = buf[r * 5 + c];
+        }
+    }
+
+    Ok(square)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -595,5 +618,26 @@ mod tests {
 
         let filled = squares_for_main_diag(&env, &square);
         assert!(filled.take(10).all(|square| env.square_is_valid(&square)));
+    }
+
+    #[test]
+    fn test_read_write_square() -> std::io::Result<()> {
+        let square: Square = [
+            [1, 22, 21, 18, 3],
+            [20, 2, 15, 9, 19],
+            [14, 16, 13, 10, 12],
+            [7, 17, 11, 24, 6],
+            [23, 8, 5, 4, 25],
+        ];
+
+        let mut buf = Vec::new();
+
+        write_square(&square, &mut buf)?;
+
+        let square2 = read_square(&mut buf.as_slice())?;
+
+        assert_eq!(square, square2);
+
+        Ok(())
     }
 }

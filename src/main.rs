@@ -1,7 +1,9 @@
 use clap::Parser;
 use rayon;
 use rayon::prelude::ParallelIterator;
-use std::io::{self, Write};
+use std::fs::File;
+use std::io::{self, BufWriter, Write};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{thread, time};
 
@@ -17,6 +19,10 @@ struct Options {
     /// Number of threads to use in multi-threaded mode.  Defaults to number of cores
     #[clap(short, long)]
     num_threads: Option<usize>,
+
+    /// If given, path of file to write magic squares to
+    #[clap(short, long)]
+    out_file: Option<PathBuf>,
 }
 
 fn main() {
@@ -24,14 +30,21 @@ fn main() {
 
     let env = enumerate::Env::new();
 
+    let mut out_file = options
+        .out_file
+        .map(|path| BufWriter::new(File::create(path).unwrap()));
+
     if !options.multi_threaded {
         let mut num_squares = 0;
-        for _ in enumerate::generate_all_squares(&env) {
+        for square in enumerate::generate_all_squares(&env) {
             if num_squares % 1000 == 0 {
                 print!("Found {} squares\r", num_squares);
                 io::stdout().flush().unwrap();
             }
             num_squares += 1;
+            out_file
+                .as_mut()
+                .map(|f| enumerate::write_square(&square, f).unwrap());
         }
         println!("Total squares found: {}", num_squares);
     } else {
@@ -67,4 +80,6 @@ fn main() {
             num_squares.load(Ordering::Relaxed)
         );
     }
+
+    out_file.as_mut().map(|f| f.flush().unwrap());
 }
