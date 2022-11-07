@@ -9,6 +9,7 @@ edition = "2021"
 clap = { version = "4.0.18", features = ["derive"] }
 fixedbitset = "0.4.2"
 itertools = "0.10.5"
+num_cpus = "1.14.0"
 rayon = "1.5.3"
 
 # Include debugging symbols in release mode

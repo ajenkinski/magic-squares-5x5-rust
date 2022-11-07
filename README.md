@@ -15,6 +15,12 @@ the tools to your path. If not, manually add `~/.cargo/bin` to your path.
 
 # Running
 
+First build the app with 
+
+```
+cargo build -r
+```
+
 To run single-threaded, run 
 
 ```
@@ -32,3 +38,6 @@ The app will default to using all available cores on the machine it's run on.  Y
 ```
 cargo run -r -- -m -n 16
 ```
+
+You can also have the app save the generated magic squares to a file by passing the `-o output_path` option.  Each square is saved as a sequence of 25 bytes, consisting of the magic square's values in row-major order as binary numbers.  The file simply consists of all the squares stored sequentially, with no header info.  Be aware that the file
+will be around 1.5 GB to store all ~68 million 5x5 squares.

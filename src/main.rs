@@ -50,9 +50,11 @@ fn main() {
         println!("Total squares found: {}", num_squares);
     } else {
         let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(options.num_threads.unwrap_or(0))
+            .num_threads(options.num_threads.unwrap_or(num_cpus::get()))
             .build()
             .unwrap();
+
+        println!("Running with {} threads", pool.current_num_threads());
 
         let mut num_squares: usize = 0;
 
