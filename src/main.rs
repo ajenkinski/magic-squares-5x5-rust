@@ -4,8 +4,8 @@ use rayon::prelude::ParallelIterator;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{thread, time};
+use std::sync::mpsc::channel;
+use std::thread;
 
 pub mod enumerate;
 
@@ -42,9 +42,10 @@ fn main() {
                 io::stdout().flush().unwrap();
             }
             num_squares += 1;
-            out_file
-                .as_mut()
-                .map(|f| enumerate::write_square(&square, f).unwrap());
+            
+            if let Some(f) = out_file.as_mut() {
+                enumerate::write_square(&square, f).unwrap()
+            } 
         }
         println!("Total squares found: {}", num_squares);
     } else {
@@ -55,30 +56,34 @@ fn main() {
                 .unwrap();
         }
 
-        // So that I can print a running total, I have the worker threads increment num_squares
-        // for each generated square, and then the main thread prints the current total every second.
-        let num_squares = AtomicUsize::new(0);
+        let mut num_squares: usize = 0;
+
+        let (sender, receiver) = channel();
 
         thread::scope(|scope| {
-            let worker_thread = scope.spawn(|| {
-                enumerate::generate_all_squares_parallel(&env).for_each(|_| {
-                    num_squares.fetch_add(1, Ordering::Relaxed);
-                });
+            scope.spawn(|| {
+                enumerate::generate_all_squares_parallel(&env).for_each_with(
+                    sender,
+                    |sender, square| {
+                        sender.send(square).unwrap();
+                    },
+                );
             });
 
-            let poll_interval = time::Duration::from_secs(1);
-            while !worker_thread.is_finished() {
-                print!("Found {} squares\r", num_squares.load(Ordering::Relaxed));
-                io::stdout().flush().unwrap();
+            for square in receiver.iter() {
+                num_squares += 1;
+                if num_squares % 1000 == 0 {
+                    print!("Found {} squares\r", num_squares);
+                    io::stdout().flush().unwrap();
+                }
 
-                thread::sleep(poll_interval);
+                if let Some(f) = out_file.as_mut() {
+                    enumerate::write_square(&square, f).unwrap()
+                } 
             }
         });
 
-        println!(
-            "Total squares found: {}",
-            num_squares.load(Ordering::Relaxed)
-        );
+        println!("Total squares found: {}", num_squares);
     }
 
     out_file.as_mut().map(|f| f.flush().unwrap());
