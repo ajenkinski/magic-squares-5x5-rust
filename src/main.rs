@@ -4,7 +4,7 @@ use rayon::prelude::ParallelIterator;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::PathBuf;
-use std::sync::mpsc::channel;
+use std::sync::mpsc::sync_channel;
 use std::thread;
 
 pub mod enumerate;
@@ -20,7 +20,7 @@ struct Options {
     #[clap(short, long)]
     num_threads: Option<usize>,
 
-    /// If given, path of file to write magic squares to
+    /// If given, squares will be written to this file
     #[clap(short, long)]
     out_file: Option<PathBuf>,
 }
@@ -42,32 +42,34 @@ fn main() {
                 io::stdout().flush().unwrap();
             }
             num_squares += 1;
-            
+
             if let Some(f) = out_file.as_mut() {
                 enumerate::write_square(&square, f).unwrap()
-            } 
+            }
         }
         println!("Total squares found: {}", num_squares);
     } else {
-        if let Some(num_threads) = options.num_threads {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .build_global()
-                .unwrap();
-        }
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(options.num_threads.unwrap_or(0))
+            .build()
+            .unwrap();
 
         let mut num_squares: usize = 0;
 
-        let (sender, receiver) = channel();
+        // prevent channel from growing unbounded if main thread is slow writing out squares
+        let max_queued = pool.current_num_threads() * 2;
+        let (sender, receiver) = sync_channel(max_queued);
 
         thread::scope(|scope| {
             scope.spawn(|| {
-                enumerate::generate_all_squares_parallel(&env).for_each_with(
-                    sender,
-                    |sender, square| {
-                        sender.send(square).unwrap();
-                    },
-                );
+                pool.install(|| {
+                    enumerate::generate_all_squares_parallel(&env).for_each_with(
+                        sender,
+                        |sender, square| {
+                            sender.send(square).unwrap();
+                        },
+                    );
+                })
             });
 
             for square in receiver.iter() {
@@ -79,7 +81,7 @@ fn main() {
 
                 if let Some(f) = out_file.as_mut() {
                     enumerate::write_square(&square, f).unwrap()
-                } 
+                }
             }
         });
 
