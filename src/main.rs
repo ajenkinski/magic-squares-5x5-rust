@@ -58,11 +58,13 @@ fn main() {
 
         let mut num_squares: usize = 0;
 
-        // prevent channel from growing unbounded if main thread is slow writing out squares
-        let max_queued = pool.current_num_threads() * 2;
-        let (sender, receiver) = sync_channel(max_queued);
-
         thread::scope(|scope| {
+            // Have worker threads send squares over a channel as they're generated, for the main thread to count and
+            // possibly save.
+            // Prevent channel from growing unbounded if main thread is slow writing out squares
+            let max_queued = pool.current_num_threads() * 2;
+            let (sender, receiver) = sync_channel(max_queued);
+
             scope.spawn(|| {
                 pool.install(|| {
                     enumerate::generate_all_squares_parallel(&env).for_each_with(
