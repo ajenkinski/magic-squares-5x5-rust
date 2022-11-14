@@ -4,6 +4,7 @@ use rayon::prelude::ParallelIterator;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::sync_channel;
 use std::thread;
 
@@ -23,10 +24,16 @@ struct Options {
     /// If given, squares will be written to this file
     #[clap(short, long)]
     out_file: Option<PathBuf>,
+
+    /// Stop after generating this many squares.
+    #[clap(long)]
+    max_squares: Option<usize>,
 }
 
 fn main() {
     let options = Options::parse();
+
+    let max_squares = options.max_squares.unwrap_or(usize::MAX);
 
     let env = enumerate::Env::new();
 
@@ -36,7 +43,9 @@ fn main() {
 
     if !options.multi_threaded {
         let mut num_squares = 0;
-        for square in enumerate::generate_all_squares(&env) {
+        for square in
+            enumerate::generate_all_squares(&env).take(max_squares)
+        {
             if num_squares % 1000 == 0 {
                 print!("Found {} squares\r", num_squares);
                 io::stdout().flush().unwrap();
@@ -56,8 +65,6 @@ fn main() {
 
         println!("Running with {} threads", pool.current_num_threads());
 
-        let mut num_squares: usize = 0;
-
         thread::scope(|scope| {
             // Have worker threads send squares over a channel as they're generated, for the main thread to count and
             // possibly save.
@@ -67,29 +74,40 @@ fn main() {
 
             scope.spawn(|| {
                 pool.install(|| {
-                    enumerate::generate_all_squares_parallel(&env).for_each_with(
+                    // ParallelIterator doesn't support take(), so use an explicit count to end processing once
+                    // max_squares squares have been found
+                    let num_squares = AtomicUsize::new(0);
+
+                    enumerate::generate_all_squares_parallel(&env).try_for_each_with(
                         sender,
                         |sender, square| {
-                            sender.send(square).unwrap();
+                            if num_squares.fetch_add(1, Ordering::Relaxed) < max_squares {
+                                sender.send(square).unwrap();
+                                Some(())
+                            } else {
+                                // break out early if max_squares reached.
+                                None
+                            }
                         },
                     );
                 })
             });
 
-            for square in receiver.iter() {
-                num_squares += 1;
-                if num_squares % 1000 == 0 {
-                    print!("Found {} squares\r", num_squares);
+            let mut square_num = 0usize;
+            for square in receiver {
+                if square_num % 1000 == 0 {
+                    print!("Found {} squares\r", square_num);
                     io::stdout().flush().unwrap();
                 }
 
                 if let Some(f) = out_file.as_mut() {
                     enumerate::write_square(&square, f).unwrap()
                 }
-            }
-        });
 
-        println!("Total squares found: {}", num_squares);
+                square_num += 1;
+            }
+            println!("Total squares found: {}", square_num);
+        });
     }
 
     out_file.as_mut().map(|f| f.flush().unwrap());
