@@ -1,4 +1,6 @@
 use clap::Parser;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use rayon;
 use rayon::prelude::ParallelIterator;
 use std::fs::File;
@@ -25,6 +27,10 @@ struct Options {
     #[clap(short, long)]
     out_file: Option<PathBuf>,
 
+    /// Compress output file using gzip compression
+    #[clap(short, long)]
+    compress: bool,
+
     /// Stop after generating this many squares.
     #[clap(long)]
     max_squares: Option<usize>,
@@ -37,15 +43,19 @@ fn main() {
 
     let env = enumerate::Env::new();
 
-    let mut out_file = options
-        .out_file
-        .map(|path| BufWriter::new(File::create(path).unwrap()));
+    let mut out_file = options.out_file.map(|path| {
+        let f = File::create(path).unwrap();
+        if options.compress {
+            let gz_f: Box<dyn Write> = Box::new(GzEncoder::new(f, Compression::default()));
+            BufWriter::new(gz_f)
+        } else {
+            BufWriter::new(Box::new(f) as Box<dyn Write>)
+        }
+    });
 
     if !options.multi_threaded {
         let mut num_squares = 0;
-        for square in
-            enumerate::generate_all_squares(&env).take(max_squares)
-        {
+        for square in enumerate::generate_all_squares(&env).take(max_squares) {
             if num_squares % 1000 == 0 {
                 print!("Found {} squares\r", num_squares);
                 io::stdout().flush().unwrap();

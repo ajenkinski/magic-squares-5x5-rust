@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.0.18", features = ["derive"] }
 fixedbitset = "0.4.2"
+flate2 = "1.0.24"
 itertools = "0.10.5"
 num_cpus = "1.14.0"
 rayon = "1.5.3"
