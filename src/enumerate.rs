@@ -6,8 +6,15 @@ use std::{
     io::{Read, Write},
 };
 
+// Length of a side
+const N: usize = 5;
+// num cells in a square
+const N_CELLS: usize = N * N;
+
 /// A value between 1 and 25
 type SquareVal = u8;
+
+const MAX_VAL: SquareVal = (N * N) as SquareVal;
 
 /// Different types of square components
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -22,19 +29,19 @@ enum Comp {
 type Coord = (usize, usize);
 
 /// A length-5 vector of values representing a possible row, column or diagonal of a square
-type SquareVec = [SquareVal; 5];
+type SquareVec = [SquareVal; N];
 
-/// A magic square represented as a 5x5 array
-type Square = [SquareVec; 5];
+/// A magic square represented as a NxN array
+type Square = [SquareVec; N];
 
 /// An empty square constant.  0 is used to represent an un-filled-in value
-const EMPTY_SQUARE: Square = [[0; 5]; 5];
+const EMPTY_SQUARE: Square = [[0; N]; N];
 
-/// Convert a length-5 Vec to a SquareVec
+/// Convert a length-N Vec to a SquareVec
 fn vec_to_square_vec(vec: &Vec<SquareVal>) -> SquareVec {
-    assert_eq!(vec.len(), 5);
-    let mut result: SquareVec = [0; 5];
-    for i in 0..5 {
+    assert_eq!(vec.len(), N);
+    let mut result: SquareVec = [0; N];
+    for i in 0..N {
         result[i] = vec[i];
     }
     result
@@ -43,10 +50,10 @@ fn vec_to_square_vec(vec: &Vec<SquareVal>) -> SquareVec {
 /// Returns the set of coordinates for given component
 fn get_component_coords(comp: Comp) -> Vec<Coord> {
     match comp {
-        Comp::Row(r) => (0..5).map(|c| (r, c)).collect(),
-        Comp::Col(c) => (0..5).map(|r| (r, c)).collect(),
-        Comp::MainDiag => (0..5).map(|i| (i, i)).collect(),
-        Comp::MinorDiag => (0..5).map(|r| (r, 4 - r)).collect(),
+        Comp::Row(r) => (0..N).map(|c| (r, c)).collect(),
+        Comp::Col(c) => (0..N).map(|r| (r, c)).collect(),
+        Comp::MainDiag => (0..N).map(|i| (i, i)).collect(),
+        Comp::MinorDiag => (0..N).map(|r| (r, 4 - r)).collect(),
     }
 }
 
@@ -73,7 +80,7 @@ impl Env {
     /// Initialize a new Env struct with precomputed values to use in computations
     pub fn new() -> Env {
         let mut component_coords = HashMap::<Comp, Vec<Coord>>::new();
-        for i in 0..5 {
+        for i in 0..N {
             component_coords.insert(Comp::Row(i), get_component_coords(Comp::Row(i)));
             component_coords.insert(Comp::Col(i), get_component_coords(Comp::Col(i)));
         }
@@ -82,17 +89,17 @@ impl Env {
 
         let all_component_coords = component_coords.values().cloned().collect_vec();
 
-        let all_nums = (1 as SquareVal)..=25;
+        let all_nums = 1..=MAX_VAL;
         let all_vectors: Vec<SquareVec> = all_nums
             .clone()
-            .combinations(5)
+            .combinations(N)
             .filter(|v| v.iter().sum::<SquareVal>() == 65)
             .map(|v| vec_to_square_vec(&v))
             .collect();
 
         let num_vecs = all_vectors.len();
-        let mut vectors_by_include = vec![FixedBitSet::with_capacity(num_vecs); 25];
-        let mut vectors_by_exclude = vec![FixedBitSet::with_capacity(num_vecs); 25];
+        let mut vectors_by_include = vec![FixedBitSet::with_capacity(num_vecs); N_CELLS];
+        let mut vectors_by_exclude = vec![FixedBitSet::with_capacity(num_vecs); N_CELLS];
 
         for (i, v) in all_vectors.iter().enumerate() {
             for x in v.iter() {
@@ -141,7 +148,7 @@ impl Env {
         vec_idxs.ones().map(|i| &self.all_vectors[i]).collect()
     }
 
-    /// Returns true if square is a valid 5x5 magic square
+    /// Returns true if square is a valid NxN magic square
     fn square_is_valid(&self, square: &Square) -> bool {
         self.all_component_coords
             .iter()
@@ -249,7 +256,7 @@ fn perform_step<'a>(
     env.filtered_vectors(&assigned_vals, &vals_to_exclude)
         .into_iter()
         .flat_map(move |new_component_vec| {
-            let to_move = (0usize..5)
+            let to_move = (0usize..N)
                 .filter(|i| !assigned_indices.contains(i))
                 .collect_vec();
             let aligned_vec = env.align_vector(&assigned, new_component_vec);
@@ -339,12 +346,12 @@ fn main_diag_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
         })
 }
 
-/// Returns an iterator over all "basic" 5x5 magic squares, computed serially
+/// Returns an iterator over all "basic" NxN magic squares, computed serially
 pub fn generate_all_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
     main_diag_squares(env).flat_map(|square| squares_for_main_diag(env, &square))
 }
 
-/// Returns a parallel iterator over all "basic" 5x5 magic squares, computed in parallel
+/// Returns a parallel iterator over all "basic" NxN magic squares, computed in parallel
 pub fn generate_all_squares_parallel<'a>(
     env: &'a Env,
 ) -> impl ParallelIterator<Item = Square> + 'a {
@@ -361,13 +368,13 @@ pub fn write_square<W: Write>(square: &Square, writer: &mut W) -> std::io::Resul
 
 /// Read a square from a reader, in the format written out by write_square
 pub fn read_square<R: Read>(reader: &mut R) -> std::io::Result<Square> {
-    let mut buf = [0u8; 25];
+    let mut buf = [0u8; N_CELLS];
     reader.read_exact(&mut buf)?;
 
     let mut square = EMPTY_SQUARE;
-    for r in 0..5 {
-        for c in 0..5 {
-            square[r][c] = buf[r * 5 + c];
+    for r in 0..N {
+        for c in 0..N {
+            square[r][c] = buf[r * N + c];
         }
     }
 
