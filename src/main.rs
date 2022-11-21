@@ -43,13 +43,12 @@ fn main() {
 
     let env = enumerate::Env::new();
 
-    let mut out_file = options.out_file.map(|path| {
+    let mut out_file: Option<_> = options.out_file.map(|path| -> Box<dyn Write> {
         let f = File::create(path).unwrap();
         if options.compress {
-            let gz_f: Box<dyn Write> = Box::new(GzEncoder::new(f, Compression::default()));
-            BufWriter::new(gz_f)
+            Box::new(BufWriter::new(GzEncoder::new(f, Compression::default())))
         } else {
-            BufWriter::new(Box::new(f) as Box<dyn Write>)
+            Box::new(BufWriter::new(f))
         }
     });
 
