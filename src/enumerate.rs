@@ -205,19 +205,17 @@ impl Env {
         let to_move: Vec<_> = to_move.into();
         let vector = vector.clone();
 
-        let mut perms = to_move.clone().into_iter().permutations(to_move.len());
-
-        std::iter::from_fn(move || {
-            if let Some(perm) = perms.next() {
+        to_move
+            .clone()
+            .into_iter()
+            .permutations(to_move.len())
+            .map(move |perm| {
                 let mut new_vec = vector.clone();
                 for (orig_i, new_i) in to_move.iter().zip(perm) {
                     new_vec[new_i] = vector[*orig_i];
                 }
-                Some(new_vec)
-            } else {
-                None
-            }
-        })
+                new_vec
+            })
     }
 
     /// align_to is a list (value, index) pairs. It is assumed that vector contains all the indicated
