@@ -274,55 +274,42 @@ fn squares_for_main_diag<'a>(
     // implement multi-step backtracking by applying flat_map to the result of each previous step
 
     // fill in minor diag
-    let it = perform_step(env, main_diag_square, Comp::MinorDiag);
-
-    // constraint I > B, H > B, G > F > B
-    let it = it.filter(|square| {
-        square[3][1] > square[0][0]
-            && square[1][3] > square[0][0]
-            && square[4][0] > square[0][4]
-            && square[0][4] > square[0][0]
-    });
-
-    // fill in row 0
-    let it = it.flat_map(|square| perform_step(env, &square, Comp::Row(0)));
-
-    // fill column 1
-    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(1)));
-
-    // Fill column 3
-    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(3)));
-
-    // fill row 4
-    let it = it.flat_map(|square| perform_step(env, &square, Comp::Row(4)));
-
-    // fill row 2
-    let it = it.flat_map(|square| perform_step(env, &square, Comp::Row(2)));
-
-    // fill column 2
-    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(2)));
-
-    // fill column 0
-    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(0)));
-
-    // fill column 4
-    let it = it.flat_map(|square| perform_step(env, &square, Comp::Col(4)));
-
-    // finally, filter out invalid squares.  The algorithm ensures that most components are valid, but row 1 and row 3
-    // could still be invalid.
-    let it = it.filter(|square| env.square_is_valid(square));
-
-    // For squares with a center value of less than 13, add the "inverse" square
-    let it = it.flat_map(|square| {
-        let with_inverse = if square[2][2] < 13 {
-            vec![square, square.map(|row| row.map(|v| 26 - v))]
-        } else {
-            vec![square]
-        };
-        with_inverse.into_iter()
-    });
-
-    it
+    perform_step(env, main_diag_square, Comp::MinorDiag)
+        // constraint I > B, H > B, G > F > B
+        .filter(|square| {
+            square[3][1] > square[0][0]
+                && square[1][3] > square[0][0]
+                && square[4][0] > square[0][4]
+                && square[0][4] > square[0][0]
+        })
+        // fill in row 0
+        .flat_map(|square| perform_step(env, &square, Comp::Row(0)))
+        // fill column 1
+        .flat_map(|square| perform_step(env, &square, Comp::Col(1)))
+        // Fill column 3
+        .flat_map(|square| perform_step(env, &square, Comp::Col(3)))
+        // fill row 4
+        .flat_map(|square| perform_step(env, &square, Comp::Row(4)))
+        // fill row 2
+        .flat_map(|square| perform_step(env, &square, Comp::Row(2)))
+        // fill column 2
+        .flat_map(|square| perform_step(env, &square, Comp::Col(2)))
+        // fill column 0
+        .flat_map(|square| perform_step(env, &square, Comp::Col(0)))
+        // fill column 4
+        .flat_map(|square| perform_step(env, &square, Comp::Col(4)))
+        // finally, filter out invalid squares.  The algorithm ensures that most components are valid, but row 1 and row 3
+        // could still be invalid.
+        .filter(|square| env.square_is_valid(square))
+        // For squares with a center value of less than 13, add the "inverse" square
+        .flat_map(|square| {
+            let with_inverse = if square[2][2] < 13 {
+                vec![square, square.map(|row| row.map(|v| 26 - v))]
+            } else {
+                vec![square]
+            };
+            with_inverse.into_iter()
+        })
 }
 
 /// Returns an iterator of all squares with just the main diagonal filled in

@@ -119,5 +119,7 @@ fn main() {
         });
     }
 
+    // It's recommended to call flush on a BufWriter before it's dropped.  Drop will also flush, but errors during
+    // dropping will be ignored, so an explicit call is preferred.
     out_file.as_mut().map(|f| f.flush().unwrap());
 }
