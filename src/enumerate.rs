@@ -39,12 +39,7 @@ const EMPTY_SQUARE: Square = [[0; N]; N];
 
 /// Convert a length-N Vec to a SquareVec
 fn vec_to_square_vec(vec: &Vec<SquareVal>) -> SquareVec {
-    assert_eq!(vec.len(), N);
-    let mut result: SquareVec = [0; N];
-    for i in 0..N {
-        result[i] = vec[i];
-    }
-    result
+    vec.clone().try_into().unwrap()
 }
 
 /// Returns the set of coordinates for given component
@@ -303,12 +298,11 @@ fn squares_for_main_diag<'a>(
         .filter(|square| env.square_is_valid(square))
         // For squares with a center value of less than 13, add the "inverse" square
         .flat_map(|square| {
-            let with_inverse = if square[2][2] < 13 {
+            if square[2][2] < 13 {
                 vec![square, square.map(|row| row.map(|v| 26 - v))]
             } else {
                 vec![square]
-            };
-            with_inverse.into_iter()
+            }
         })
 }
 
