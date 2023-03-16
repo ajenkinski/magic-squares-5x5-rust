@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::sync_channel;
 use std::thread;
+use std::time::Instant;
 
 pub mod enumerate;
 
@@ -51,6 +52,8 @@ fn main() {
             Box::new(BufWriter::new(f))
         }
     });
+
+    let start_time = Instant::now();
 
     if !options.multi_threaded {
         let mut num_squares = 0;
@@ -117,6 +120,8 @@ fn main() {
             }
             println!("Total squares found: {}", square_num);
         });
+
+        println!("Took {}", humantime::format_duration(start_time.elapsed()));
     }
 
     // It's recommended to call flush on a BufWriter before it's dropped.  Drop will also flush, but errors during

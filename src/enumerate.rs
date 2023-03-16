@@ -38,8 +38,8 @@ type Square = [SquareVec; N];
 const EMPTY_SQUARE: Square = [[0; N]; N];
 
 /// Convert a length-N Vec to a SquareVec
-fn vec_to_square_vec(vec: &Vec<SquareVal>) -> SquareVec {
-    vec.clone().try_into().unwrap()
+fn vec_into_square_vec(vec: Vec<SquareVal>) -> SquareVec {
+    vec.try_into().unwrap()
 }
 
 /// Returns the set of coordinates for given component
@@ -89,7 +89,7 @@ impl Env {
             .clone()
             .combinations(N)
             .filter(|v| v.iter().sum::<SquareVal>() == 65)
-            .map(|v| vec_to_square_vec(&v))
+            .map(|v| vec_into_square_vec(v))
             .collect();
 
         let num_vecs = all_vectors.len();
