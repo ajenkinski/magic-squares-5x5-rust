@@ -52,6 +52,52 @@ fn get_component_coords(comp: Comp) -> Vec<Coord> {
     }
 }
 
+/// align_to is a list (value, index) pairs. It is assumed that vector contains all the indicated
+/// values.  Returns a copy of vector, with values moved to the corresponding index values.
+fn align_vector(align_to: &[(SquareVal, usize)], vector: &SquareVec) -> SquareVec {
+    let mut new_vec = vector.clone();
+
+    for (val, i) in align_to.iter() {
+        if new_vec[*i] != *val {
+            let old_pos = new_vec.iter().position(|v| *v == *val).unwrap();
+            new_vec.swap(*i, old_pos);
+        }
+    }
+
+    new_vec
+}
+
+/// Return a list of all permutations of a list, but with only certain elements allowed to move.
+/// For example vector_permutations([1,3,4], vec) will return a list of all permutations of vec
+/// resulting from permuting the elements with index (0-based) 1, 3 and 4, but elements 0 and 2
+/// won't be moved.
+fn vector_permutations(to_move: &[usize], vector: &SquareVec) -> impl Iterator<Item = SquareVec> {
+    let to_move: Vec<_> = to_move.into();
+    let vector = vector.clone();
+
+    to_move
+        .clone()
+        .into_iter()
+        .permutations(to_move.len())
+        .map(move |perm| {
+            let mut new_vec = vector.clone();
+            for (orig_i, new_i) in to_move.iter().zip(perm) {
+                new_vec[new_i] = vector[*orig_i];
+            }
+            new_vec
+        })
+}
+
+/// Return all the assigned values of a square
+fn all_square_values(square: &Square) -> Vec<SquareVal> {
+    square
+        .iter()
+        .flatten()
+        .cloned()
+        .filter(|val| *val != 0)
+        .collect()
+}
+
 /// Holds pre-computed values used by generation algorithm
 pub struct Env {
     component_coords: HashMap<Comp, Vec<Coord>>,
@@ -177,56 +223,6 @@ impl Env {
             })
             .collect()
     }
-
-    /// Return all the assigned values of a square
-    fn all_square_values(&self, square: &Square) -> Vec<SquareVal> {
-        square
-            .iter()
-            .flatten()
-            .cloned()
-            .filter(|val| *val != 0)
-            .collect()
-    }
-
-    /// Return a list of all permutations of a list, but with only certain elements allowed to move.
-    /// For example vector_permutations([1,3,4], vec) will return a list of all permutations of vec
-    /// resulting from permuting the elements with index (0-based) 1, 3 and 4, but elements 0 and 2
-    /// won't be moved.
-    fn vector_permuations(
-        &self,
-        to_move: &[usize],
-        vector: &SquareVec,
-    ) -> impl Iterator<Item = SquareVec> {
-        let to_move: Vec<_> = to_move.into();
-        let vector = vector.clone();
-
-        to_move
-            .clone()
-            .into_iter()
-            .permutations(to_move.len())
-            .map(move |perm| {
-                let mut new_vec = vector.clone();
-                for (orig_i, new_i) in to_move.iter().zip(perm) {
-                    new_vec[new_i] = vector[*orig_i];
-                }
-                new_vec
-            })
-    }
-
-    /// align_to is a list (value, index) pairs. It is assumed that vector contains all the indicated
-    /// values.  Returns a copy of vector, with values moved to the corresponding index values.
-    fn align_vector(&self, align_to: &[(SquareVal, usize)], vector: &SquareVec) -> SquareVec {
-        let mut new_vec = vector.clone();
-
-        for (val, i) in align_to.iter() {
-            if new_vec[*i] != *val {
-                let old_pos = new_vec.iter().position(|v| *v == *val).unwrap();
-                new_vec.swap(*i, old_pos);
-            }
-        }
-
-        new_vec
-    }
 }
 
 /// Returns an iterator over all squares resulting from filling in comp on square
@@ -238,8 +234,7 @@ fn perform_step<'a>(
     let assigned = env.assigned_values(square, comp);
     let (assigned_vals, assigned_indices): (Vec<_>, Vec<_>) = assigned.iter().copied().unzip();
 
-    let vals_to_exclude = env
-        .all_square_values(square)
+    let vals_to_exclude = all_square_values(square)
         .into_iter()
         .filter(|v| !assigned_vals.contains(v))
         .collect_vec();
@@ -252,10 +247,10 @@ fn perform_step<'a>(
             let to_move = (0usize..N)
                 .filter(|i| !assigned_indices.contains(i))
                 .collect_vec();
-            let aligned_vec = env.align_vector(&assigned, new_component_vec);
+            let aligned_vec = align_vector(&assigned, new_component_vec);
             // This copy is to work around a problem with capture
             let comp = comp.clone();
-            env.vector_permuations(&to_move, &aligned_vec)
+            vector_permutations(&to_move, &aligned_vec)
                 .map(move |vec| env.assign_vector(&square, comp, &vec))
         })
 }
@@ -515,9 +510,7 @@ mod tests {
 
     #[test]
     fn test_all_square_values() {
-        let env = Env::new();
-
-        assert_eq!(env.all_square_values(&EMPTY_SQUARE), vec![]);
+        assert_eq!(all_square_values(&EMPTY_SQUARE), vec![]);
 
         let square = [
             [0, 0, 0, 0, 1],
@@ -527,25 +520,19 @@ mod tests {
             [5, 0, 0, 0, 0],
         ];
 
-        assert_eq!(env.all_square_values(&square), vec![1, 2, 3, 4, 5]);
+        assert_eq!(all_square_values(&square), vec![1, 2, 3, 4, 5]);
     }
 
     #[test]
     fn test_vector_permutations() {
-        let env = Env::new();
-
         let expected = vec![vec![1, 2, 3, 4, 5], vec![1, 2, 5, 4, 3]];
-        let actual = env
-            .vector_permuations(&[2, 4], &[1, 2, 3, 4, 5])
-            .collect_vec();
+        let actual = vector_permutations(&[2, 4], &[1, 2, 3, 4, 5]).collect_vec();
         assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_align_vector() {
-        let env = Env::new();
-
-        let aligned = env.align_vector(&[(1, 3), (4, 0)], &[1, 2, 3, 4, 5]);
+        let aligned = align_vector(&[(1, 3), (4, 0)], &[1, 2, 3, 4, 5]);
         assert_eq!(aligned[0], 4);
         assert_eq!(aligned[3], 1);
         assert_eq!(

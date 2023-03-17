@@ -16,7 +16,7 @@ the tools to your path. If not, manually add `~/.cargo/bin` to your path.
 ## Quick setup for running on an AWS machine using the default AWS linux AMI
 
 ```
-sudo yum update
+sudo yum update -y
 sudo yum install -y git gcc
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
