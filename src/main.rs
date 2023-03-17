@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc::sync_channel;
+use std::sync::mpsc::channel;
 use std::thread;
 use std::time::Instant;
 
@@ -80,9 +80,7 @@ fn main() {
         thread::scope(|scope| {
             // Have worker threads send squares over a channel as they're generated, for the main thread to count and
             // possibly save.
-            // Prevent channel from growing unbounded if main thread is slow writing out squares
-            let max_queued = pool.current_num_threads() * 2;
-            let (sender, receiver) = sync_channel(max_queued);
+            let (sender, receiver) = channel();
 
             scope.spawn(|| {
                 pool.install(|| {
