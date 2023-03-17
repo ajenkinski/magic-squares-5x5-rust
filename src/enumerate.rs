@@ -55,7 +55,7 @@ fn get_component_coords(comp: Comp) -> Vec<Coord> {
 /// align_to is a list (value, index) pairs. It is assumed that vector contains all the indicated
 /// values.  Returns a copy of vector, with values moved to the corresponding index values.
 fn align_vector(align_to: &[(SquareVal, usize)], vector: &SquareVec) -> SquareVec {
-    let mut new_vec = vector.clone();
+    let mut new_vec = *vector;
 
     for (val, i) in align_to.iter() {
         if new_vec[*i] != *val {
@@ -73,14 +73,14 @@ fn align_vector(align_to: &[(SquareVal, usize)], vector: &SquareVec) -> SquareVe
 /// won't be moved.
 fn vector_permutations(to_move: &[usize], vector: &SquareVec) -> impl Iterator<Item = SquareVec> {
     let to_move: Vec<_> = to_move.into();
-    let vector = vector.clone();
+    let vector = *vector;
 
     to_move
         .clone()
         .into_iter()
         .permutations(to_move.len())
         .map(move |perm| {
-            let mut new_vec = vector.clone();
+            let mut new_vec = vector;
             for (orig_i, new_i) in to_move.iter().zip(perm) {
                 new_vec[new_i] = vector[*orig_i];
             }
@@ -113,7 +113,7 @@ pub struct Env {
     vectors_by_include: Vec<FixedBitSet>,
 
     /// Index that allows looking up all vectors *not* containing number x.  vectors_by_exclude[x - 1] is the
-    ///  set of indexes into all_vectors of vectors not containing x.
+    /// set of indexes into all_vectors of vectors not containing x.
     vectors_by_exclude: Vec<FixedBitSet>,
 }
 
@@ -135,7 +135,7 @@ impl Env {
             .clone()
             .combinations(N)
             .filter(|v| v.iter().sum::<SquareVal>() == 65)
-            .map(|v| vec_into_square_vec(v))
+            .map(vec_into_square_vec)
             .collect();
 
         let num_vecs = all_vectors.len();
@@ -182,7 +182,7 @@ impl Env {
 
         // intersection of all sets
         let mut vec_idxs = vec_sets[0].clone();
-        for &s in vec_sets[1..].into_iter() {
+        for &s in &vec_sets[1..] {
             vec_idxs.intersect_with(s);
         }
 
@@ -200,15 +200,15 @@ impl Env {
     /// Assign a row, column or diagonal to a square, returning a copy
     fn assign_vector(&self, square: &Square, comp: Comp, values: &SquareVec) -> Square {
         let mut new_square = *square;
-        for (i, (r, c)) in self.component_coords[&comp].iter().enumerate() {
-            new_square[*r][*c] = values[i];
+        for (i, &(r, c)) in self.component_coords[&comp].iter().enumerate() {
+            new_square[r][c] = values[i];
         }
         new_square
     }
 
     /// Returns [(assignedVal, idx)] for a component, indicating where the
     /// assigned values for this component are.  assignedVals are the assigned values in component,
-    /// and idexs are the indices of the non-zeros (0..4) along the component.
+    /// and idxs are the indices of the non-zeros (0..4) along the component.
     fn assigned_values(&self, square: &Square, comp: Comp) -> Vec<(SquareVal, usize)> {
         self.component_coords[&comp]
             .iter()
@@ -222,6 +222,12 @@ impl Env {
                 }
             })
             .collect()
+    }
+}
+
+impl Default for Env {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -239,7 +245,7 @@ fn perform_step<'a>(
         .filter(|v| !assigned_vals.contains(v))
         .collect_vec();
 
-    let square = square.clone();
+    let square = *square;
 
     env.filtered_vectors(&assigned_vals, &vals_to_exclude)
         .into_iter()
@@ -249,7 +255,7 @@ fn perform_step<'a>(
                 .collect_vec();
             let aligned_vec = align_vector(&assigned, new_component_vec);
             // This copy is to work around a problem with capture
-            let comp = comp.clone();
+            let comp = comp;
             vector_permutations(&to_move, &aligned_vec)
                 .map(move |vec| env.assign_vector(&square, comp, &vec))
         })
@@ -302,7 +308,7 @@ fn squares_for_main_diag<'a>(
 }
 
 /// Returns an iterator of all squares with just the main diagonal filled in
-fn main_diag_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
+fn main_diag_squares(env: &Env) -> impl Iterator<Item = Square> + '_ {
     let center_values = (1 as SquareVal)..=13;
     let center_squares = center_values.map(|center| {
         let mut square = EMPTY_SQUARE;
@@ -321,14 +327,12 @@ fn main_diag_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
 }
 
 /// Returns an iterator over all "basic" NxN magic squares, computed serially
-pub fn generate_all_squares<'a>(env: &'a Env) -> impl Iterator<Item = Square> + 'a {
+pub fn generate_all_squares(env: &Env) -> impl Iterator<Item = Square> + '_ {
     main_diag_squares(env).flat_map(|square| squares_for_main_diag(env, &square))
 }
 
 /// Returns a parallel iterator over all "basic" NxN magic squares, computed in parallel
-pub fn generate_all_squares_parallel<'a>(
-    env: &'a Env,
-) -> impl ParallelIterator<Item = Square> + 'a {
+pub fn generate_all_squares_parallel(env: &Env) -> impl ParallelIterator<Item = Square> + '_ {
     main_diag_squares(env)
         .par_bridge()
         .flat_map_iter(|square| squares_for_main_diag(env, &square))
@@ -409,14 +413,14 @@ mod tests {
     fn test_filtered_vectors() {
         let env = Env::new();
         let vecs = env.filtered_vectors(&[1, 23], &[]);
-        assert!(vecs.len() > 0);
+        assert!(!vecs.is_empty());
         for v in vecs {
             assert!(v.contains(&1));
             assert!(v.contains(&23));
         }
 
         let vecs = env.filtered_vectors(&[1, 23], &[2]);
-        assert!(vecs.len() > 0);
+        assert!(!vecs.is_empty());
         for v in vecs {
             assert!(v.contains(&1));
             assert!(v.contains(&23));

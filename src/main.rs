@@ -1,7 +1,6 @@
 use clap::Parser;
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use rayon;
 use rayon::prelude::ParallelIterator;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
@@ -71,7 +70,7 @@ fn main() {
         println!("Total squares found: {}", num_squares);
     } else {
         let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(options.num_threads.unwrap_or(num_cpus::get()))
+            .num_threads(options.num_threads.unwrap_or_else(num_cpus::get))
             .build()
             .unwrap();
 
@@ -118,12 +117,13 @@ fn main() {
             }
             println!("Total squares found: {}", square_num);
         });
-
     }
-    
+
     println!("Took {}", humantime::format_duration(start_time.elapsed()));
 
     // It's recommended to call flush on a BufWriter before it's dropped.  Drop will also flush, but errors during
     // dropping will be ignored, so an explicit call is preferred.
-    out_file.as_mut().map(|f| f.flush().unwrap());
+    if let Some(f) = out_file.as_mut() {
+        f.flush().unwrap()
+    }
 }
