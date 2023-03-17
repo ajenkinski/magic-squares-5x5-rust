@@ -119,8 +119,9 @@ fn main() {
             println!("Total squares found: {}", square_num);
         });
 
-        println!("Took {}", humantime::format_duration(start_time.elapsed()));
     }
+    
+    println!("Took {}", humantime::format_duration(start_time.elapsed()));
 
     // It's recommended to call flush on a BufWriter before it's dropped.  Drop will also flush, but errors during
     // dropping will be ignored, so an explicit call is preferred.
