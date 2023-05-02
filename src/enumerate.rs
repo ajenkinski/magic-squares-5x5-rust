@@ -16,6 +16,9 @@ type SquareVal = u8;
 
 const MAX_VAL: SquareVal = (N * N) as SquareVal;
 
+/// Expected sum of row, column or diagonal
+const COMP_SUM: SquareVal = 65;
+
 /// Different types of square components
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 enum Comp {
@@ -57,10 +60,10 @@ fn get_component_coords(comp: Comp) -> Vec<Coord> {
 fn align_vector(align_to: &[(SquareVal, usize)], vector: &SquareVec) -> SquareVec {
     let mut new_vec = *vector;
 
-    for (val, i) in align_to.iter() {
-        if new_vec[*i] != *val {
-            let old_pos = new_vec.iter().position(|v| *v == *val).unwrap();
-            new_vec.swap(*i, old_pos);
+    for &(val, i) in align_to.iter() {
+        if new_vec[i] != val {
+            let old_pos = new_vec.iter().position(|v| *v == val).unwrap();
+            new_vec.swap(i, old_pos);
         }
     }
 
@@ -134,7 +137,7 @@ impl Env {
         let all_vectors: Vec<SquareVec> = all_nums
             .clone()
             .combinations(N)
-            .filter(|v| v.iter().sum::<SquareVal>() == 65)
+            .filter(|v| v.iter().sum::<SquareVal>() == COMP_SUM)
             .map(vec_into_square_vec)
             .collect();
 
@@ -193,8 +196,13 @@ impl Env {
     fn square_is_valid(&self, square: &Square) -> bool {
         self.all_component_coords
             .iter()
-            .map(|comp_coords| comp_coords.iter().map(|(r, c)| square[*r][*c]).sum::<u8>())
-            .all(|sum| sum == 65)
+            .map(|comp_coords| {
+                comp_coords
+                    .iter()
+                    .map(|(r, c)| square[*r][*c])
+                    .sum::<SquareVal>()
+            })
+            .all(|sum| sum == COMP_SUM)
     }
 
     /// Assign a row, column or diagonal to a square, returning a copy
@@ -254,8 +262,7 @@ fn perform_step<'a>(
                 .filter(|i| !assigned_indices.contains(i))
                 .collect_vec();
             let aligned_vec = align_vector(&assigned, new_component_vec);
-            // This copy is to work around a problem with capture
-            let comp = comp;
+            
             vector_permutations(&to_move, &aligned_vec)
                 .map(move |vec| env.assign_vector(&square, comp, &vec))
         })
@@ -394,7 +401,7 @@ mod tests {
         assert!(env
             .all_vectors
             .iter()
-            .all(|v| v.iter().sum::<SquareVal>() == 65));
+            .all(|v| v.iter().sum::<SquareVal>() == COMP_SUM));
 
         for (i, vi) in env.vectors_by_include.iter().enumerate() {
             for vec_idx in vi.ones() {
