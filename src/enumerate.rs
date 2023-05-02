@@ -1,6 +1,6 @@
 use fixedbitset::FixedBitSet;
 use itertools::Itertools;
-use rayon::prelude::*;
+use rayon::prelude::{ParallelBridge, ParallelIterator};
 use std::{
     collections::HashMap,
     io::{Read, Write},
