@@ -12,7 +12,7 @@ flate2 = "1.0.24"
 humantime = "2.1.0"
 itertools = "0.10.5"
 num_cpus = "1.14.0"
-rayon = "1.5.3"
+rayon = "1.7.0"
 
 # Include debugging symbols in release mode
 [profile.release]
