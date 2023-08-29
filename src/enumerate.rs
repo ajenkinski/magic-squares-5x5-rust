@@ -51,7 +51,7 @@ fn get_component_coords(comp: Comp) -> Vec<Coord> {
         Comp::Row(r) => (0..N).map(|c| (r, c)).collect(),
         Comp::Col(c) => (0..N).map(|r| (r, c)).collect(),
         Comp::MainDiag => (0..N).map(|i| (i, i)).collect(),
-        Comp::MinorDiag => (0..N).map(|r| (r, 4 - r)).collect(),
+        Comp::MinorDiag => (0..N).map(|r| (r, N - r - 1)).collect(),
     }
 }
 
