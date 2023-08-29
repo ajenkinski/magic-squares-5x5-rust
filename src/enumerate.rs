@@ -123,13 +123,13 @@ pub struct Env {
 impl Env {
     /// Initialize a new Env struct with precomputed values to use in computations
     pub fn new() -> Env {
-        let mut component_coords = HashMap::<Comp, Vec<Coord>>::new();
-        for i in 0..N {
-            component_coords.insert(Comp::Row(i), get_component_coords(Comp::Row(i)));
-            component_coords.insert(Comp::Col(i), get_component_coords(Comp::Col(i)));
-        }
-        component_coords.insert(Comp::MainDiag, get_component_coords(Comp::MainDiag));
-        component_coords.insert(Comp::MinorDiag, get_component_coords(Comp::MinorDiag));
+        let all_components = (0..N)
+            .flat_map(|i| [Comp::Row(i), Comp::Col(i)])
+            .chain([Comp::MainDiag, Comp::MinorDiag]);
+
+        let component_coords: HashMap<Comp, Vec<(usize, usize)>> = all_components
+            .map(|comp| (comp, get_component_coords(comp)))
+            .collect();
 
         let all_component_coords = component_coords.values().cloned().collect_vec();
 
