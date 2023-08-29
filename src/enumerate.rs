@@ -262,7 +262,7 @@ fn perform_step<'a>(
                 .filter(|i| !assigned_indices.contains(i))
                 .collect_vec();
             let aligned_vec = align_vector(&assigned, new_component_vec);
-            
+
             vector_permutations(&to_move, &aligned_vec)
                 .map(move |vec| env.assign_vector(&square, comp, &vec))
         })

@@ -80,7 +80,7 @@ fn main() {
         // possibly save.
         let (sender, receiver) = channel();
 
-        // generate squares in a background thread so foreground thread can report progress and optionally save quares
+        // generate squares in a background thread so foreground thread can report progress and optionally save squares
         let generator_handle = thread::spawn(move || {
             pool.install(|| {
                 // ParallelIterator doesn't support take(), so use an explicit count to end processing once
