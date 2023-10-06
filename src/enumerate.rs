@@ -214,7 +214,7 @@ impl Env {
         new_square
     }
 
-    /// Returns [(assignedVal, idx)] for a component, indicating where the
+    /// Returns `[(assignedVal, idx)]` for a component, indicating where the
     /// assigned values for this component are.  assignedVals are the assigned values in component,
     /// and idxs are the indices of the non-zeros (0..4) along the component.
     fn assigned_values(&self, square: &Square, comp: Comp) -> Vec<(SquareVal, usize)> {
@@ -347,7 +347,7 @@ pub fn generate_all_squares_parallel(env: &Env) -> impl ParallelIterator<Item = 
 
 /// Write a square in binary format
 pub fn write_square<W: Write>(square: &Square, writer: &mut W) -> std::io::Result<()> {
-    let buf = square.iter().flatten().cloned().collect_vec();
+    let buf = square.iter().flatten().copied().collect_vec();
     writer.write_all(buf.as_slice())
 }
 

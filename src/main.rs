@@ -13,7 +13,12 @@ use std::time::Instant;
 pub mod enumerate;
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(
+    author,
+    version,
+    about,
+    long_about = "Generates all canonical 5x5 magic squares."
+)]
 struct Options {
     /// Run in multi-threaded mode
     #[clap(short, long)]
@@ -32,7 +37,7 @@ struct Options {
     compress: bool,
 
     /// Stop after generating this many squares.
-    #[clap(long)]
+    #[clap(short = 's', long)]
     max_squares: Option<usize>,
 }
 
