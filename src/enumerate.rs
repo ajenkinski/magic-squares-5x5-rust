@@ -92,13 +92,8 @@ fn vector_permutations(to_move: &[usize], vector: &SquareVec) -> impl Iterator<I
 }
 
 /// Return all the assigned values of a square
-fn all_square_values(square: &Square) -> Vec<SquareVal> {
-    square
-        .iter()
-        .flatten()
-        .cloned()
-        .filter(|val| *val != 0)
-        .collect()
+fn all_square_values(square: &Square) -> impl Iterator<Item = SquareVal> + '_ {
+    square.iter().flatten().copied().filter(|val| *val != 0)
 }
 
 /// Holds pre-computed values used by generation algorithm
@@ -249,7 +244,6 @@ fn perform_step<'a>(
     let (assigned_vals, assigned_indices): (Vec<_>, Vec<_>) = assigned.iter().copied().unzip();
 
     let vals_to_exclude = all_square_values(square)
-        .into_iter()
         .filter(|v| !assigned_vals.contains(v))
         .collect_vec();
 
@@ -346,13 +340,13 @@ pub fn generate_all_squares_parallel(env: &Env) -> impl ParallelIterator<Item = 
 }
 
 /// Write a square in binary format
-pub fn write_square<W: Write>(square: &Square, writer: &mut W) -> std::io::Result<()> {
+pub fn write_square(square: &Square, writer: &mut impl Write) -> std::io::Result<()> {
     let buf = square.iter().flatten().copied().collect_vec();
     writer.write_all(buf.as_slice())
 }
 
 /// Read a square from a reader, in the format written out by write_square
-pub fn read_square<R: Read>(reader: &mut R) -> std::io::Result<Square> {
+pub fn read_square(reader: &mut impl Read) -> std::io::Result<Square> {
     let mut buf = [0u8; N_CELLS];
     reader.read_exact(&mut buf)?;
 
@@ -521,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_all_square_values() {
-        assert_eq!(all_square_values(&EMPTY_SQUARE), vec![]);
+        assert_eq!(all_square_values(&EMPTY_SQUARE).collect_vec(), vec![]);
 
         let square = [
             [0, 0, 0, 0, 1],
@@ -531,7 +525,10 @@ mod tests {
             [5, 0, 0, 0, 0],
         ];
 
-        assert_eq!(all_square_values(&square), vec![1, 2, 3, 4, 5]);
+        assert_eq!(
+            all_square_values(&square).collect_vec(),
+            vec![1, 2, 3, 4, 5]
+        );
     }
 
     #[test]
