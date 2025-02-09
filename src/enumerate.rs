@@ -28,6 +28,18 @@ enum Comp {
     MinorDiag,
 }
 
+impl Comp {
+    /// Returns the set of coordinates for given component
+    fn coords(&self) -> Vec<Coord> {
+        match self {
+            Comp::Row(r) => (0..N).map(|c| (*r, c)).collect(),
+            Comp::Col(c) => (0..N).map(|r| (r, *c)).collect(),
+            Comp::MainDiag => (0..N).map(|i| (i, i)).collect(),
+            Comp::MinorDiag => (0..N).map(|r| (r, N - r - 1)).collect(),
+        }
+    }
+}
+
 /// A (row, column) coordinate of a square, 0 based
 type Coord = (usize, usize);
 
@@ -43,16 +55,6 @@ const EMPTY_SQUARE: Square = [[0; N]; N];
 /// Convert a length-N Vec to a SquareVec
 fn vec_into_square_vec(vec: Vec<SquareVal>) -> SquareVec {
     vec.try_into().unwrap()
-}
-
-/// Returns the set of coordinates for given component
-fn get_component_coords(comp: Comp) -> Vec<Coord> {
-    match comp {
-        Comp::Row(r) => (0..N).map(|c| (r, c)).collect(),
-        Comp::Col(c) => (0..N).map(|r| (r, c)).collect(),
-        Comp::MainDiag => (0..N).map(|i| (i, i)).collect(),
-        Comp::MinorDiag => (0..N).map(|r| (r, N - r - 1)).collect(),
-    }
 }
 
 /// align_to is a list (value, index) pairs. It is assumed that vector contains all the indicated
@@ -122,9 +124,8 @@ impl Env {
             .flat_map(|i| [Comp::Row(i), Comp::Col(i)])
             .chain([Comp::MainDiag, Comp::MinorDiag]);
 
-        let component_coords: HashMap<Comp, Vec<(usize, usize)>> = all_components
-            .map(|comp| (comp, get_component_coords(comp)))
-            .collect();
+        let component_coords: HashMap<Comp, Vec<(usize, usize)>> =
+            all_components.map(|comp| (comp, comp.coords())).collect();
 
         let all_component_coords = component_coords.values().cloned().collect_vec();
 
@@ -141,7 +142,7 @@ impl Env {
         let mut vectors_by_exclude = vec![FixedBitSet::with_capacity(num_vecs); N_CELLS];
 
         for (i, v) in all_vectors.iter().enumerate() {
-            for x in v.iter() {
+            for x in v {
                 vectors_by_include[(x - 1) as usize].insert(i);
             }
 
@@ -367,19 +368,19 @@ mod tests {
     #[test]
     fn test_component_indices() {
         assert_eq!(
-            get_component_coords(Comp::Row(1)),
+            Comp::Row(1).coords(),
             vec![(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)]
         );
         assert_eq!(
-            get_component_coords(Comp::Col(2)),
+            Comp::Col(2).coords(),
             vec![(0, 2), (1, 2), (2, 2), (3, 2), (4, 2)]
         );
         assert_eq!(
-            get_component_coords(Comp::MainDiag),
+            Comp::MainDiag.coords(),
             vec![(0, 0), (1, 1), (2, 2), (3, 3), (4, 4)]
         );
         assert_eq!(
-            get_component_coords(Comp::MinorDiag),
+            Comp::MinorDiag.coords(),
             vec![(0, 4), (1, 3), (2, 2), (3, 1), (4, 0)]
         );
     }
